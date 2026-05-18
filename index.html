@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>現場勘查照片整理工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Field Survey Photo Mapper</p>
+      <h1>現場勘查照片整理工具</h1>
+    </div>
+    <div class="header-actions">
+      <button id="exportProject" class="secondary">匯出 JSON</button>
+      <label class="secondary file-button">
+        匯入 JSON
+        <input id="importProject" type="file" accept="application/json">
+      </label>
+    </div>
+  </header>
+
+  <section class="settings-bar" aria-label="設定列">
+    <div class="setting-group media-setting">
+      <span class="setting-title">放入底圖</span>
+      <label class="primary file-button">
+        選擇 PDF 或照片
+        <input id="baseFileInput" type="file" accept="application/pdf,image/*">
+      </label>
+      <span id="fileName" class="muted file-name">尚未選擇檔案</span>
+    </div>
+
+    <div class="setting-group mode-setting">
+      <span class="setting-title">操作模式</span>
+      <div class="mode-grid" role="group" aria-label="操作模式">
+        <button id="panMode" class="mode active" type="button">拖曳瀏覽</button>
+        <button id="pinMode" class="mode" type="button">新增標籤</button>
+      </div>
+    </div>
+
+    <div class="setting-group zoom-setting">
+      <span class="setting-title">縮放</span>
+      <div class="zoom-controls">
+        <button id="zoomOut" type="button" aria-label="縮小">－</button>
+        <input id="zoomSlider" type="range" min="100" max="400" value="100" step="5" aria-label="縮放比例">
+        <button id="zoomIn" type="button" aria-label="放大">＋</button>
+      </div>
+      <span id="zoomLabel" class="zoom-label">100%</span>
+    </div>
+  </section>
+
+  <main id="appShell" class="app-shell panel-pinned">
+    <button id="showPinPanel" class="panel-reveal hidden" type="button">標籤清單</button>
+
+    <aside id="pinPanel" class="control-panel pinned" aria-label="標籤清單">
+      <section class="card pin-panel-card">
+        <header class="pin-panel-header">
+          <div>
+            <p class="eyebrow">Markers</p>
+            <h2>標籤清單</h2>
+          </div>
+          <div class="pin-panel-actions">
+            <button id="pinPanelPin" class="icon-button active" type="button" title="釘住標籤清單" aria-pressed="true">📌</button>
+            <button id="hidePinPanel" class="icon-button" type="button" title="隱藏標籤清單">‹</button>
+          </div>
+        </header>
+        <p class="muted">點擊清單可開啟右側標籤頁。解除釘住後可隱藏到左側，需要時再展開。</p>
+        <div id="emptyPins" class="empty-state">尚未建立標籤。切換到「新增標籤」後點擊主視窗。</div>
+        <ol id="pinList" class="pin-list"></ol>
+      </section>
+    </aside>
+
+    <section class="viewer-card" aria-label="主視窗">
+      <div class="viewer-toolbar">
+        <strong>主視窗</strong>
+        <span id="modeHint">目前模式：拖曳瀏覽</span>
+      </div>
+      <div id="viewer" class="viewer" tabindex="0">
+        <div id="stage" class="stage">
+          <div id="placeholder" class="placeholder">
+            <div class="placeholder-icon">⌖</div>
+            <h2>請先上傳現場平面圖、PDF 或照片</h2>
+            <p>上傳後切換到「新增標籤」，點擊影像位置即可建立勘查紀錄。</p>
+          </div>
+          <img id="baseImage" class="base-media hidden" alt="現場勘查底圖">
+          <object id="basePdf" class="base-media hidden" type="application/pdf" aria-label="PDF 底圖"></object>
+          <div id="pinLayer" class="pin-layer" aria-label="標籤圖層"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside id="pinEditor" class="pin-editor hidden" aria-label="標籤內容編輯">
+    <form id="pinForm">
+      <header id="pinEditorHeader" class="pin-editor-header">
+        <div>
+          <p class="eyebrow">Inspection Marker</p>
+          <h2 id="dialogTitle">標籤內容</h2>
+        </div>
+        <button id="closeDialog" class="icon-button" type="button" aria-label="關閉">×</button>
+      </header>
+
+      <label>
+        標題
+        <input id="pinTitle" type="text" placeholder="例：裂縫、滲水、設備位置" required>
+      </label>
+
+      <label>
+        勘查時間
+        <input id="pinTime" type="datetime-local">
+      </label>
+
+      <label>
+        說明／註解
+        <textarea id="pinNote" rows="5" placeholder="記錄現場狀況、尺寸、處理建議或人員說明"></textarea>
+      </label>
+
+      <label>
+        補充照片
+        <input id="pinPhotos" type="file" accept="image/*" multiple>
+      </label>
+      <div id="photoPreview" class="photo-preview" aria-live="polite"></div>
+
+      <menu>
+        <button id="deletePin" class="danger" type="button">刪除標籤</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancelDialog" class="secondary">關閉</button>
+        <button id="savePin" class="primary" type="submit">儲存</button>
+      </menu>
+    </form>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
