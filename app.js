@@ -79,17 +79,23 @@ function clampViewport() {
 }
 
 function applyTransform() {
+  state.scale = Math.max(getMinimumScale(), state.scale);
   clampViewport();
   elements.stage.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
   elements.zoomSlider.value = Math.round(state.scale * 100);
   elements.zoomLabel.textContent = `${Math.round(state.scale * 100)}%`;
 }
 
+function getMinimumScale() {
+  return 1;
+}
+
 function setMode(mode) {
   state.mode = mode;
   elements.panMode.classList.toggle('active', mode === 'pan');
   elements.pinMode.classList.toggle('active', mode === 'pin');
-  elements.modeHint.textContent = `目前模式：${mode === 'pin' ? '新增標籤' : '拖曳瀏覽'}`;
+  elements.pinLayer.classList.toggle('editing', mode === 'pin');
+  elements.modeHint.textContent = `目前模式：${mode === 'pin' ? '新增標籤（可拖曳標籤調整位置）' : '拖曳瀏覽'}`;
   elements.viewer.style.cursor = mode === 'pin' ? 'crosshair' : 'grab';
 }
 
@@ -145,7 +151,7 @@ function clampPinToStage(point) {
 }
 
 function zoomAt(nextScale, clientX, clientY) {
-  const boundedScale = Math.min(4, Math.max(0.25, nextScale));
+  const boundedScale = Math.min(4, Math.max(getMinimumScale(), nextScale));
   const viewerRect = elements.viewer.getBoundingClientRect();
   const originX = clientX ?? viewerRect.left + viewerRect.width / 2;
   const originY = clientY ?? viewerRect.top + viewerRect.height / 2;
@@ -258,9 +264,22 @@ function renderPhotoPreview(photos) {
     return;
   }
 
-  photos.forEach((photo) => {
+  photos.forEach((photo, index) => {
     const figure = document.createElement('figure');
-    figure.innerHTML = `<img src="${photo.dataUrl}" alt="${escapeHtml(photo.name)}"><figcaption>${escapeHtml(photo.name)}</figcaption>`;
+    figure.className = 'photo-card';
+    figure.innerHTML = `
+      <img src="${photo.dataUrl}" alt="${escapeHtml(photo.title || photo.name)}">
+      <figcaption>
+        <span>${escapeHtml(photo.name)}</span>
+        <label>
+          照片標題
+          <input class="photo-title-input" data-photo-index="${index}" type="text" value="${escapeHtml(photo.title || '')}" placeholder="請輸入照片標題">
+        </label>
+        <label>
+          照片註解
+          <textarea class="photo-note-input" data-photo-index="${index}" rows="3" placeholder="請輸入照片註解">${escapeHtml(photo.note || '')}</textarea>
+        </label>
+      </figcaption>`;
     elements.photoPreview.append(figure);
   });
 }
@@ -269,8 +288,11 @@ async function addPinPhotos(files) {
   const pin = state.pins.find((item) => item.id === state.activePinId);
   if (!pin) return;
 
+  savePhotoMetadata(pin);
   const photos = await Promise.all(Array.from(files).map(async (file) => ({
     name: file.name,
+    title: '',
+    note: '',
     dataUrl: await readFileAsDataUrl(file)
   })));
   pin.photos.push(...photos);
@@ -278,10 +300,27 @@ async function addPinPhotos(files) {
   saveProject();
 }
 
+function savePhotoMetadata(pin) {
+  elements.photoPreview.querySelectorAll('.photo-title-input').forEach((input) => {
+    const photo = pin.photos[Number(input.dataset.photoIndex)];
+    if (photo) {
+      photo.title = input.value.trim();
+    }
+  });
+
+  elements.photoPreview.querySelectorAll('.photo-note-input').forEach((textarea) => {
+    const photo = pin.photos[Number(textarea.dataset.photoIndex)];
+    if (photo) {
+      photo.note = textarea.value.trim();
+    }
+  });
+}
+
 function saveActivePin() {
   const pin = state.pins.find((item) => item.id === state.activePinId);
   if (!pin) return;
 
+  savePhotoMetadata(pin);
   pin.title = elements.pinTitle.value.trim() || '未命名標籤';
   pin.time = elements.pinTime.value;
   pin.note = elements.pinNote.value.trim();
@@ -290,6 +329,10 @@ function saveActivePin() {
 }
 
 function startPinDrag(event, pinId) {
+  if (state.mode !== 'pin') {
+    return;
+  }
+
   event.stopPropagation();
   state.draggingPinId = pinId;
   state.didMovePin = false;
@@ -403,6 +446,13 @@ elements.zoomOut.addEventListener('click', () => zoomAt(state.scale - 0.15));
 elements.zoomIn.addEventListener('click', () => zoomAt(state.scale + 0.15));
 elements.zoomSlider.addEventListener('input', (event) => zoomAt(Number(event.target.value) / 100));
 elements.pinPhotos.addEventListener('change', (event) => addPinPhotos(event.target.files));
+elements.photoPreview.addEventListener('input', () => {
+  const pin = state.pins.find((item) => item.id === state.activePinId);
+  if (!pin) return;
+
+  savePhotoMetadata(pin);
+  saveProject();
+});
 elements.deletePin.addEventListener('click', deleteActivePin);
 elements.cancelDialog.addEventListener('click', () => elements.pinDialog.close());
 

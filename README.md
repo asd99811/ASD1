@@ -22,10 +22,10 @@ http://127.0.0.1:4173/index.html
 
 1. 開啟 `index.html`。
 2. 上傳 PDF 或照片作為主視窗底圖。
-3. 使用滑鼠滾輪、縮放滑桿、＋/－按鈕縮放；按住主視窗拖曳瀏覽。
-4. 切換到「新增標籤」後點擊底圖新增標籤。
-5. 在彈窗中填寫標題、勘查時間、說明/註解與補充照片。
-6. 標籤建立後可直接拖曳調整位置。
+3. 使用滑鼠滾輪、縮放滑桿、＋/－按鈕縮放；最小縮放為 100%，不會縮小到原始主視窗範圍以下。
+4. 按住主視窗拖曳瀏覽。
+5. 切換到「新增標籤」後點擊底圖新增標籤；只有在此模式下，既有標籤才可拖曳調整位置。
+6. 在彈窗中填寫標題、勘查時間、說明/註解與補充照片。每張補充照片可另外手寫照片標題與照片註解。
 7. 可匯出 JSON 備份專案，也可再匯入 JSON 繼續編輯。
 
 ## 檔案架構
@@ -45,7 +45,7 @@ http://127.0.0.1:4173/index.html
 - `.control-panel`：左側控制面板。
   - `#baseFileInput`：上傳底圖（PDF 或圖片）。
   - `#panMode` / `#pinMode`：切換拖曳瀏覽與新增標籤模式。
-  - `#zoomSlider`、`#zoomOut`、`#zoomIn`：縮放控制。
+  - `#zoomSlider`、`#zoomOut`、`#zoomIn`：縮放控制；目前最小值為 100%。
   - `#pinList`：標籤清單。
 - `.viewer-card` / `#viewer`：主視窗。
   - `#stage`：實際被 transform 縮放/平移的底圖舞台。
@@ -54,7 +54,7 @@ http://127.0.0.1:4173/index.html
   - `#pinLayer`：標籤圖層。
 - `#pinDialog`：標籤詳細資料彈窗。
   - `#pinTitle`、`#pinTime`、`#pinNote`、`#pinPhotos` 對應標籤資料欄位。
-  - `#photoPreview` 顯示補充照片預覽。
+  - `#photoPreview` 顯示補充照片預覽，並動態產生每張照片的「照片標題」與「照片註解」欄位。
 
 > 注意：如果修改任一元素 `id`，通常也要同步修改 `app.js` 的 `elements` 查找表。
 
@@ -93,7 +93,7 @@ http://127.0.0.1:4173/index.html
   title: string,
   time: string,
   note: string,
-  photos: Array<{ name: string, dataUrl: string }>
+  photos: Array<{ name: string, title: string, note: string, dataUrl: string }>
 }
 ```
 
@@ -104,7 +104,7 @@ http://127.0.0.1:4173/index.html
   - `clampViewport()`：限制主視窗平移範圍，避免拖曳後露出過多空白背景。
   - `applyTransform()`：套用 `translate(...) scale(...)`，並同步縮放 UI 顯示。
   - `viewerPointToStagePoint(clientX, clientY)`：把滑鼠座標換算成 `#stage` 內座標。新增或拖曳標籤時會用到。
-  - `zoomAt(nextScale, clientX, clientY)`：以滑鼠位置或 viewer 中心為縮放中心。
+  - `zoomAt(nextScale, clientX, clientY)`：以滑鼠位置或 viewer 中心為縮放中心，並透過 `getMinimumScale()` 限制最小縮放為 100%。
 - 底圖檔案
   - `readFileAsDataUrl(file)`：用 `FileReader` 將檔案轉成 data URL。
   - `loadBaseFile(file)`：讀取使用者上傳的 PDF/圖片。
@@ -114,7 +114,7 @@ http://127.0.0.1:4173/index.html
   - `renderPins()`：重繪圖釘與左側清單。
   - `openPinDialog(pinId)`：開啟標籤詳細資料彈窗。
   - `saveActivePin()`：儲存彈窗欄位回目前標籤。
-  - `startPinDrag()` / `moveActivePin()` / `finishPinDrag()`：拖曳既有標籤調整位置。
+  - `startPinDrag()` / `moveActivePin()` / `finishPinDrag()`：拖曳既有標籤調整位置；`startPinDrag()` 會檢查 `state.mode === 'pin'`，所以只有新增標籤模式可移動標籤。
   - `updateActivePinStyles()`：同步圖釘與清單的 active 顏色。
 - 專案保存
   - `getProjectData()`：組出可儲存/匯出的專案 JSON。
@@ -160,7 +160,8 @@ http://127.0.0.1:4173/index.html
 3. 在 `createPin()` 的 pin 初始資料新增欄位。
 4. 在 `openPinDialog()` 將 pin 資料填入欄位。
 5. 在 `saveActivePin()` 將欄位值寫回 pin。
-6. 若要匯出/匯入，不必另外處理；`getProjectData()` 會把整個 `pins` 陣列寫入 JSON。
+6. 若欄位屬於補充照片，請同步檢查 `renderPhotoPreview()`、`savePhotoMetadata()` 與 `addPinPhotos()`。
+7. 若要匯出/匯入，不必另外處理；`getProjectData()` 會把整個 `pins` 陣列寫入 JSON。
 
 ### 修改標籤外觀或動畫
 
@@ -170,6 +171,7 @@ http://127.0.0.1:4173/index.html
 
 優先看 `app.js` 的：
 
+- `getMinimumScale()`
 - `clampViewport()`
 - `applyTransform()`
 - `zoomAt()`
@@ -216,11 +218,12 @@ curl -I http://127.0.0.1:4173/index.html
 
 - 上傳圖片後可顯示底圖。
 - 上傳 PDF 後可顯示 PDF。
-- 滾輪、滑桿、＋/－縮放正常。
+- 滾輪、滑桿、＋/－縮放正常，且不能縮小到 100% 以下。
 - 拖曳瀏覽時底圖不會被拖出可視範圍。
 - 新增標籤後彈窗可輸入並儲存資料。
+- 補充照片以標籤視窗寬度顯示，且每張照片可填寫照片標題與照片註解。
 - 點擊圖釘與清單項目會同步 active 顏色。
-- 既有標籤可拖曳調整位置。
+- 既有標籤只能在「新增標籤」模式下拖曳調整位置；「拖曳瀏覽」模式下點擊標籤只開啟詳細資料。
 - 匯出 JSON 後可再匯入還原底圖與標籤。
 
 ## 開發限制與注意事項
