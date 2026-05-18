@@ -485,4 +485,3 @@ if (storedProject) {
 setMode('pan');
 applyTransform();
 renderPins();
-
