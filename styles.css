@@ -159,6 +159,12 @@ h2 { font-size: 1.05rem; }
   text-align: left;
 }
 
+.pin-list li.active button {
+  border-color: #ffb020;
+  background: #fff7e8;
+  box-shadow: inset 4px 0 0 #ffb020;
+}
+
 .viewer-card {
   min-height: calc(100vh - 8rem);
   overflow: hidden;
@@ -240,23 +246,55 @@ h2 { font-size: 1.05rem; }
 
 .pin-marker {
   position: absolute;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.55rem;
   display: grid;
-  place-items: center;
-  border: 3px solid white;
-  border-radius: 999px 999px 999px 0;
-  background: #ffb020;
+  place-items: start center;
+  border: 0;
+  background: transparent;
   color: #4a2500;
-  box-shadow: 0 8px 18px rgba(74, 37, 0, 0.28);
   font-size: 0.78rem;
   font-weight: 900;
   pointer-events: auto;
-  transform: translate(-50%, -100%) rotate(-45deg);
+  transform: translate(-50%, -100%);
+  cursor: grab;
+  touch-action: none;
 }
 
-.pin-marker span { transform: rotate(45deg); }
-.pin-marker:hover { z-index: 5; background: #ffd27a; }
+.pin-marker::before {
+  content: "";
+  position: absolute;
+  top: 0.14rem;
+  left: 50%;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 3px solid white;
+  border-radius: 999px 999px 999px 0;
+  background: #ffb020;
+  box-shadow: 0 8px 18px rgba(74, 37, 0, 0.28);
+  transform: translateX(-50%) rotate(-45deg);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pin-marker span {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.49rem;
+}
+.pin-marker:hover, .pin-marker:active { transform: translate(-50%, -100%); }
+.pin-marker:hover, .pin-marker.active { z-index: 5; }
+.pin-marker:hover::before, .pin-marker.active::before {
+  background: #ffd27a;
+  box-shadow: 0 0 0 6px rgba(255, 176, 32, 0.22), 0 10px 22px rgba(74, 37, 0, 0.32);
+}
+.pin-marker.active::before {
+  animation: pinPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes pinPulse {
+  0%, 100% { box-shadow: 0 0 0 5px rgba(255, 176, 32, 0.18), 0 10px 22px rgba(74, 37, 0, 0.32); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 176, 32, 0.28), 0 10px 22px rgba(74, 37, 0, 0.32); }
+}
 
 .pin-dialog {
   width: min(44rem, calc(100vw - 2rem));
