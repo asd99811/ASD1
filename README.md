@@ -21,8 +21,8 @@ http://127.0.0.1:4173/index.html
 ## 使用流程
 
 1. 開啟 `index.html`。
-2. 上傳 PDF 或照片作為主視窗底圖。
-3. 使用滑鼠滾輪、縮放滑桿、＋/－按鈕縮放；最小縮放為 100%，不會縮小到原始主視窗範圍以下。
+2. 上傳 PDF 或照片作為主視窗底圖；重新選擇底圖時會初始化視圖並清空既有標籤。
+3. 使用滑鼠滾輪、縮放滑桿、＋/－按鈕縮放；最小縮放為 100%，不會縮小到原始主視窗範圍以下，圖釘會依縮放倍率自動微調尺寸，避免放大時跟著變大。
 4. 按住主視窗拖曳瀏覽。
 5. 切換到「新增標籤」後點擊底圖新增標籤；只有在此模式下，既有標籤才可拖曳調整位置。
 6. 標籤內容會以右側浮動標籤頁顯示，可拖曳移動；開啟時主視窗仍可同時操作。每張補充照片可另外手寫照片標題與照片註解。
@@ -106,12 +106,13 @@ http://127.0.0.1:4173/index.html
 - 視窗/座標/縮放
   - `getStageBaseOffset()`：取得 `#stage` 以 viewer 中心定位時的基準偏移。
   - `clampViewport()`：限制主視窗平移範圍，避免拖曳後露出過多空白背景。
-  - `applyTransform()`：套用 `translate(...) scale(...)`，並同步縮放 UI 顯示。
+  - `applyTransform()`：套用 `translate(...) scale(...)`，同步縮放 UI 顯示，並把 `--pin-marker-scale` 寫到 `#pinLayer`，讓圖釘在主畫面放大時自動縮小。
   - `viewerPointToStagePoint(clientX, clientY)`：把滑鼠座標換算成 `#stage` 內座標。新增或拖曳標籤時會用到。
   - `zoomAt(nextScale, clientX, clientY)`：以滑鼠位置或 viewer 中心為縮放中心，並透過 `getMinimumScale()` 限制最小縮放為 100%。
 - 底圖檔案
   - `readFileAsDataUrl(file)`：用 `FileReader` 將檔案轉成 data URL。
-  - `loadBaseFile(file)`：讀取使用者上傳的 PDF/圖片。
+  - `loadBaseFile(file)`：讀取使用者上傳的 PDF/圖片；會先呼叫 `resetProjectForNewBaseFile()` 清空既有標籤並重設視圖。
+  - `resetProjectForNewBaseFile()`：重新選擇底圖時初始化標籤、目前選取、縮放/平移與右側標籤頁。
   - `showBaseMedia()`：依 `baseType` 顯示 `#baseImage` 或 `#basePdf`。
 - 標籤
   - `createPin(x, y)`：建立新標籤。
@@ -152,7 +153,7 @@ http://127.0.0.1:4173/index.html
 
 - 全站配色集中在 `:root` CSS variables。
 - `.viewer` 是可視區，`.stage` 是被縮放/平移的底圖舞台。
-- `.pin-marker` 是實際可點擊/可拖曳的標籤 hit area。
+- `.pin-marker` 是實際可點擊/可拖曳的標籤 hit area，會使用 `--pin-marker-scale` 抵銷主畫面縮放造成的尺寸放大。
 - `.pin-marker::before` 是旋轉後的圖釘視覺；動畫只放在 pseudo-element 上，避免動畫改變可點擊範圍。
 - `.pin-marker.active` 與 `.pin-list li.active button` 要保持視覺同步。
 - `.settings-bar` 是頂部設定列，放置底圖上傳、操作模式與縮放。
@@ -227,7 +228,7 @@ curl -I http://127.0.0.1:4173/index.html
 
 - 上傳圖片後可顯示底圖。
 - 上傳 PDF 後可顯示 PDF。
-- 滾輪、滑桿、＋/－縮放正常，且不能縮小到 100% 以下。
+- 滾輪、滑桿、＋/－縮放正常，且不能縮小到 100% 以下；放大主畫面時，圖釘位置固定且視覺尺寸會自動微調縮小。
 - 拖曳瀏覽時底圖不會被拖出可視範圍。
 - 新增標籤後右側浮動標籤頁可輸入並儲存資料，且主視窗仍可操作。
 - 右側浮動標籤頁可拖曳移動位置。
@@ -235,6 +236,7 @@ curl -I http://127.0.0.1:4173/index.html
 - 補充照片以標籤視窗寬度顯示，且每張照片可填寫照片標題與照片註解。
 - 點擊圖釘與清單項目會同步 active 顏色。
 - 既有標籤只能在「新增標籤」模式下拖曳調整位置；「拖曳瀏覽」模式下點擊標籤只開啟詳細資料。
+- 重新上傳/選擇新的 PDF 或照片後，既有標籤會清空，視圖回到初始縮放與位置。
 - 匯出 JSON 後可再匯入還原底圖與標籤。
 
 ## 開發限制與注意事項

@@ -281,7 +281,12 @@ h2 { font-size: 1.05rem; }
   background: white;
   pointer-events: none;
 }
-.pin-layer { position: absolute; inset: 0; pointer-events: none; }
+.pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --pin-marker-scale: 1;
+}
 .pin-marker {
   position: absolute;
   width: 2.25rem;
@@ -294,7 +299,8 @@ h2 { font-size: 1.05rem; }
   font-size: 0.78rem;
   font-weight: 900;
   pointer-events: auto;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -100%) scale(var(--pin-marker-scale));
+  transform-origin: 50% 100%;
   cursor: pointer;
   touch-action: none;
 }
@@ -314,7 +320,7 @@ h2 { font-size: 1.05rem; }
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 .pin-marker span { position: relative; z-index: 1; margin-top: 0.49rem; }
-.pin-marker:hover, .pin-marker:active { transform: translate(-50%, -100%); }
+.pin-marker:hover, .pin-marker:active { transform: translate(-50%, -100%) scale(var(--pin-marker-scale)); }
 .pin-marker:hover, .pin-marker.active { z-index: 5; }
 .pin-marker:hover::before, .pin-marker.active::before {
   background: #ffd27a;

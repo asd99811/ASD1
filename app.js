@@ -93,6 +93,7 @@ function applyTransform() {
   state.scale = Math.max(getMinimumScale(), state.scale);
   clampViewport();
   elements.stage.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
+  elements.pinLayer.style.setProperty('--pin-marker-scale', 1 / state.scale);
   elements.zoomSlider.value = Math.round(state.scale * 100);
   elements.zoomLabel.textContent = `${Math.round(state.scale * 100)}%`;
 }
@@ -122,11 +123,28 @@ function readFileAsDataUrl(file) {
 async function loadBaseFile(file) {
   if (!file) return;
   const dataUrl = await readFileAsDataUrl(file);
+  resetProjectForNewBaseFile();
   state.baseFile = { name: file.name, dataUrl };
   state.baseType = file.type.includes('pdf') ? 'pdf' : 'image';
   elements.fileName.textContent = file.name;
   showBaseMedia();
+  applyTransform();
   saveProject();
+}
+
+function resetProjectForNewBaseFile() {
+  state.pins = [];
+  state.activePinId = null;
+  state.scale = 1;
+  state.translateX = -450;
+  state.translateY = -310;
+  state.draggingPinId = null;
+  state.didMovePin = false;
+  state.suppressPinClick = false;
+  elements.pinPhotos.value = '';
+  elements.photoPreview.innerHTML = '';
+  closePinEditor();
+  renderPins();
 }
 
 function showBaseMedia() {
