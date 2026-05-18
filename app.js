@@ -12,10 +12,19 @@ const state = {
   didMovePin: false,
   suppressPinClick: false,
   dragStart: { x: 0, y: 0 },
-  startTranslate: { x: 0, y: 0 }
+  startTranslate: { x: 0, y: 0 },
+  pinPanelPinned: true,
+  isEditorDragging: false,
+  editorDragStart: { x: 0, y: 0 },
+  startEditorPosition: { x: 0, y: 0 }
 };
 
 const elements = {
+  appShell: document.querySelector('#appShell'),
+  pinPanel: document.querySelector('#pinPanel'),
+  hidePinPanel: document.querySelector('#hidePinPanel'),
+  pinPanelPin: document.querySelector('#pinPanelPin'),
+  showPinPanel: document.querySelector('#showPinPanel'),
   baseFileInput: document.querySelector('#baseFileInput'),
   importProject: document.querySelector('#importProject'),
   exportProject: document.querySelector('#exportProject'),
@@ -35,7 +44,8 @@ const elements = {
   modeHint: document.querySelector('#modeHint'),
   emptyPins: document.querySelector('#emptyPins'),
   pinList: document.querySelector('#pinList'),
-  pinDialog: document.querySelector('#pinDialog'),
+  pinDialog: document.querySelector('#pinEditor'),
+  pinEditorHeader: document.querySelector('#pinEditorHeader'),
   pinForm: document.querySelector('#pinForm'),
   dialogTitle: document.querySelector('#dialogTitle'),
   pinTitle: document.querySelector('#pinTitle'),
@@ -44,7 +54,8 @@ const elements = {
   pinPhotos: document.querySelector('#pinPhotos'),
   photoPreview: document.querySelector('#photoPreview'),
   deletePin: document.querySelector('#deletePin'),
-  cancelDialog: document.querySelector('#cancelDialog')
+  cancelDialog: document.querySelector('#cancelDialog'),
+  closeDialog: document.querySelector('#closeDialog')
 };
 
 function getStageBaseOffset() {
@@ -254,7 +265,7 @@ function openPinDialog(pinId) {
   elements.pinPhotos.value = '';
   elements.deletePin.hidden = false;
   renderPhotoPreview(pin.photos);
-  elements.pinDialog.showModal();
+  elements.pinDialog.classList.remove('hidden');
 }
 
 function renderPhotoPreview(photos) {
@@ -384,9 +395,68 @@ function finishPinDrag(event) {
 function deleteActivePin() {
   state.pins = state.pins.filter((pin) => pin.id !== state.activePinId);
   state.activePinId = null;
-  elements.pinDialog.close();
+  closePinEditor();
   renderPins();
   saveProject();
+}
+
+function closePinEditor() {
+  elements.pinDialog.classList.add('hidden');
+}
+
+function setPinPanelPinned(pinned) {
+  state.pinPanelPinned = pinned;
+  elements.pinPanel.classList.toggle('pinned', pinned);
+  elements.pinPanelPin.classList.toggle('active', pinned);
+  elements.pinPanelPin.setAttribute('aria-pressed', String(pinned));
+  elements.appShell.classList.toggle('panel-pinned', pinned);
+}
+
+function hidePinPanel() {
+  if (state.pinPanelPinned) {
+    setPinPanelPinned(false);
+  }
+
+  elements.appShell.classList.add('panel-hidden');
+  elements.showPinPanel.classList.remove('hidden');
+}
+
+function showPinPanel() {
+  elements.appShell.classList.remove('panel-hidden');
+  elements.showPinPanel.classList.add('hidden');
+}
+
+function startEditorDrag(event) {
+  if (event.target.closest('button')) return;
+
+  const rect = elements.pinDialog.getBoundingClientRect();
+  state.isEditorDragging = true;
+  state.editorDragStart = { x: event.clientX, y: event.clientY };
+  state.startEditorPosition = { x: rect.left, y: rect.top };
+  elements.pinDialog.style.left = `${rect.left}px`;
+  elements.pinDialog.style.top = `${rect.top}px`;
+  elements.pinDialog.style.right = 'auto';
+  elements.pinEditorHeader.setPointerCapture(event.pointerId);
+}
+
+function moveEditor(event) {
+  if (!state.isEditorDragging) return;
+
+  const width = elements.pinDialog.offsetWidth;
+  const height = elements.pinDialog.offsetHeight;
+  const nextLeft = state.startEditorPosition.x + event.clientX - state.editorDragStart.x;
+  const nextTop = state.startEditorPosition.y + event.clientY - state.editorDragStart.y;
+  elements.pinDialog.style.left = `${clampValue(nextLeft, 8, window.innerWidth - width - 8)}px`;
+  elements.pinDialog.style.top = `${clampValue(nextTop, 8, window.innerHeight - Math.min(height, window.innerHeight - 16) - 8)}px`;
+}
+
+function finishEditorDrag(event) {
+  if (!state.isEditorDragging) return;
+
+  state.isEditorDragging = false;
+  if (event.target.hasPointerCapture?.(event.pointerId)) {
+    event.target.releasePointerCapture(event.pointerId);
+  }
 }
 
 function getProjectData() {
@@ -454,12 +524,22 @@ elements.photoPreview.addEventListener('input', () => {
   saveProject();
 });
 elements.deletePin.addEventListener('click', deleteActivePin);
-elements.cancelDialog.addEventListener('click', () => elements.pinDialog.close());
+elements.cancelDialog.addEventListener('click', closePinEditor);
+elements.closeDialog.addEventListener('click', closePinEditor);
+elements.hidePinPanel.addEventListener('click', hidePinPanel);
+elements.showPinPanel.addEventListener('click', showPinPanel);
+elements.pinPanelPin.addEventListener('click', () => {
+  setPinPanelPinned(!state.pinPanelPinned);
+  showPinPanel();
+});
+elements.pinEditorHeader.addEventListener('pointerdown', startEditorDrag);
+elements.pinEditorHeader.addEventListener('pointermove', moveEditor);
+elements.pinEditorHeader.addEventListener('pointerup', finishEditorDrag);
+elements.pinEditorHeader.addEventListener('pointercancel', finishEditorDrag);
 
 elements.pinForm.addEventListener('submit', (event) => {
   event.preventDefault();
   saveActivePin();
-  elements.pinDialog.close();
 });
 
 elements.viewer.addEventListener('wheel', (event) => {
@@ -518,8 +598,8 @@ window.addEventListener('resize', () => {
 });
 
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && elements.pinDialog.open) {
-    elements.pinDialog.close();
+  if (event.key === 'Escape' && !elements.pinDialog.classList.contains('hidden')) {
+    closePinEditor();
   }
 });
 
@@ -533,5 +613,6 @@ if (storedProject) {
 }
 
 setMode('pan');
+setPinPanelPinned(true);
 applyTransform();
 renderPins();

@@ -25,15 +25,15 @@ http://127.0.0.1:4173/index.html
 3. 使用滑鼠滾輪、縮放滑桿、＋/－按鈕縮放；最小縮放為 100%，不會縮小到原始主視窗範圍以下。
 4. 按住主視窗拖曳瀏覽。
 5. 切換到「新增標籤」後點擊底圖新增標籤；只有在此模式下，既有標籤才可拖曳調整位置。
-6. 在彈窗中填寫標題、勘查時間、說明/註解與補充照片。每張補充照片可另外手寫照片標題與照片註解。
+6. 標籤內容會以右側浮動標籤頁顯示，可拖曳移動；開啟時主視窗仍可同時操作。每張補充照片可另外手寫照片標題與照片註解。
 7. 可匯出 JSON 備份專案，也可再匯入 JSON 繼續編輯。
 
 ## 檔案架構
 
 | 檔案 | 角色 | 修改重點 |
 | --- | --- | --- |
-| `index.html` | 靜態 DOM 結構 | 新增欄位、按鈕、彈窗區塊、控制面板項目時先改這裡。所有互動元素大多靠 `id` 被 `app.js` 查找。 |
-| `styles.css` | UI 與互動狀態樣式 | 版面、主視窗、標籤圖釘、active 狀態、彈窗、響應式樣式都在這裡。 |
+| `index.html` | 靜態 DOM 結構 | 新增欄位、按鈕、頂部設定列、左側標籤清單或右側浮動標籤頁時先改這裡。所有互動元素大多靠 `id` 被 `app.js` 查找。 |
+| `styles.css` | UI 與互動狀態樣式 | 版面、頂部設定列、可隱藏/釘住的標籤清單、主視窗、圖釘、active 狀態、浮動標籤頁、響應式樣式都在這裡。 |
 | `app.js` | 所有應用邏輯 | 狀態、檔案讀取、縮放/拖曳、標籤 CRUD、照片預覽、JSON 匯入/匯出、localStorage。 |
 | `README.md` | 專案說明 | 讓後續 Agent 或開發者快速理解修改方向。 |
 
@@ -42,17 +42,21 @@ http://127.0.0.1:4173/index.html
 `index.html` 的主要區塊：
 
 - `.app-header`：頁首與 JSON 匯入/匯出按鈕。
-- `.control-panel`：左側控制面板。
+- `.settings-bar`：頂部設定列。
   - `#baseFileInput`：上傳底圖（PDF 或圖片）。
   - `#panMode` / `#pinMode`：切換拖曳瀏覽與新增標籤模式。
   - `#zoomSlider`、`#zoomOut`、`#zoomIn`：縮放控制；目前最小值為 100%。
+- `#pinPanel` / `.control-panel`：左側標籤清單，可隱藏到左側，也可用 `#pinPanelPin` 釘住。
+  - `#hidePinPanel`：隱藏標籤清單。
+  - `#showPinPanel`：從左側重新展開標籤清單。
   - `#pinList`：標籤清單。
 - `.viewer-card` / `#viewer`：主視窗。
   - `#stage`：實際被 transform 縮放/平移的底圖舞台。
   - `#baseImage`：圖片底圖。
   - `#basePdf`：PDF 底圖。
   - `#pinLayer`：標籤圖層。
-- `#pinDialog`：標籤詳細資料彈窗。
+- `#pinEditor`：右側浮動標籤內容頁，不使用 modal，所以開啟時主視窗仍可操作。
+  - `#pinEditorHeader`：拖曳標籤內容頁的位置。
   - `#pinTitle`、`#pinTime`、`#pinNote`、`#pinPhotos` 對應標籤資料欄位。
   - `#photoPreview` 顯示補充照片預覽，並動態產生每張照片的「照片標題」與「照片註解」欄位。
 
@@ -112,10 +116,12 @@ http://127.0.0.1:4173/index.html
 - 標籤
   - `createPin(x, y)`：建立新標籤。
   - `renderPins()`：重繪圖釘與左側清單。
-  - `openPinDialog(pinId)`：開啟標籤詳細資料彈窗。
-  - `saveActivePin()`：儲存彈窗欄位回目前標籤。
+  - `openPinDialog(pinId)`：開啟右側浮動標籤內容頁。
+  - `saveActivePin()`：儲存浮動標籤頁欄位回目前標籤。
   - `startPinDrag()` / `moveActivePin()` / `finishPinDrag()`：拖曳既有標籤調整位置；`startPinDrag()` 會檢查 `state.mode === 'pin'`，所以只有新增標籤模式可移動標籤。
   - `updateActivePinStyles()`：同步圖釘與清單的 active 顏色。
+  - `hidePinPanel()` / `showPinPanel()` / `setPinPanelPinned()`：控制左側標籤清單隱藏、展開與釘住狀態。
+  - `startEditorDrag()` / `moveEditor()` / `finishEditorDrag()`：拖曳右側標籤內容頁。
 - 專案保存
   - `getProjectData()`：組出可儲存/匯出的專案 JSON。
   - `saveProject()`：寫入 `localStorage`。
@@ -149,13 +155,16 @@ http://127.0.0.1:4173/index.html
 - `.pin-marker` 是實際可點擊/可拖曳的標籤 hit area。
 - `.pin-marker::before` 是旋轉後的圖釘視覺；動畫只放在 pseudo-element 上，避免動畫改變可點擊範圍。
 - `.pin-marker.active` 與 `.pin-list li.active button` 要保持視覺同步。
+- `.settings-bar` 是頂部設定列，放置底圖上傳、操作模式與縮放。
+- `#pinPanel` 是左側標籤清單，搭配 `.panel-hidden` 與 `.pinned` 控制隱藏/釘住狀態。
+- `.pin-editor` 是右側浮動標籤頁，使用 `position: fixed`，可由 `#pinEditorHeader` 拖曳。
 - 響應式規則集中在檔案底部的 `@media (max-width: 900px)`。
 
 ## 常見修改任務提示
 
 ### 新增標籤欄位
 
-1. 在 `index.html` 的 `#pinDialog` 新增 input/textarea。
+1. 在 `index.html` 的 `#pinEditor` 新增 input/textarea。
 2. 在 `app.js` 的 `elements` 增加對應 DOM 查找。
 3. 在 `createPin()` 的 pin 初始資料新增欄位。
 4. 在 `openPinDialog()` 將 pin 資料填入欄位。
@@ -220,7 +229,9 @@ curl -I http://127.0.0.1:4173/index.html
 - 上傳 PDF 後可顯示 PDF。
 - 滾輪、滑桿、＋/－縮放正常，且不能縮小到 100% 以下。
 - 拖曳瀏覽時底圖不會被拖出可視範圍。
-- 新增標籤後彈窗可輸入並儲存資料。
+- 新增標籤後右側浮動標籤頁可輸入並儲存資料，且主視窗仍可操作。
+- 右側浮動標籤頁可拖曳移動位置。
+- 左側標籤清單可隱藏到左側並重新展開，也可釘住。
 - 補充照片以標籤視窗寬度顯示，且每張照片可填寫照片標題與照片註解。
 - 點擊圖釘與清單項目會同步 active 顏色。
 - 既有標籤只能在「新增標籤」模式下拖曳調整位置；「拖曳瀏覽」模式下點擊標籤只開啟詳細資料。

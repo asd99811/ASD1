@@ -21,34 +21,51 @@
     </div>
   </header>
 
-  <main class="app-shell">
-    <aside class="control-panel" aria-label="控制面板">
-      <section class="card">
-        <h2>1. 放入底圖</h2>
-        <p>支援 PDF、JPG、PNG、WebP。上傳後可縮放、拖曳平移，像地圖一樣檢視。</p>
-        <label class="primary file-button wide">
-          選擇 PDF 或照片
-          <input id="baseFileInput" type="file" accept="application/pdf,image/*">
-        </label>
-        <p id="fileName" class="muted">尚未選擇檔案</p>
-      </section>
+  <section class="settings-bar" aria-label="設定列">
+    <div class="setting-group media-setting">
+      <span class="setting-title">放入底圖</span>
+      <label class="primary file-button">
+        選擇 PDF 或照片
+        <input id="baseFileInput" type="file" accept="application/pdf,image/*">
+      </label>
+      <span id="fileName" class="muted file-name">尚未選擇檔案</span>
+    </div>
 
-      <section class="card">
-        <h2>2. 操作</h2>
-        <div class="mode-grid" role="group" aria-label="操作模式">
-          <button id="panMode" class="mode active" type="button">拖曳瀏覽</button>
-          <button id="pinMode" class="mode" type="button">新增標籤</button>
-        </div>
-        <div class="zoom-controls">
-          <button id="zoomOut" type="button">－</button>
-          <input id="zoomSlider" type="range" min="100" max="400" value="100" step="5" aria-label="縮放比例">
-          <button id="zoomIn" type="button">＋</button>
-        </div>
-        <p class="muted"><span id="zoomLabel">100%</span>｜滑鼠滾輪可縮放（最小 100%），按住畫面可拖曳。切換到「新增標籤」模式後，既有標籤可拖曳調整位置。</p>
-      </section>
+    <div class="setting-group mode-setting">
+      <span class="setting-title">操作模式</span>
+      <div class="mode-grid" role="group" aria-label="操作模式">
+        <button id="panMode" class="mode active" type="button">拖曳瀏覽</button>
+        <button id="pinMode" class="mode" type="button">新增標籤</button>
+      </div>
+    </div>
 
-      <section class="card">
-        <h2>3. 標籤清單</h2>
+    <div class="setting-group zoom-setting">
+      <span class="setting-title">縮放</span>
+      <div class="zoom-controls">
+        <button id="zoomOut" type="button" aria-label="縮小">－</button>
+        <input id="zoomSlider" type="range" min="100" max="400" value="100" step="5" aria-label="縮放比例">
+        <button id="zoomIn" type="button" aria-label="放大">＋</button>
+      </div>
+      <span id="zoomLabel" class="zoom-label">100%</span>
+    </div>
+  </section>
+
+  <main id="appShell" class="app-shell panel-pinned">
+    <button id="showPinPanel" class="panel-reveal hidden" type="button">標籤清單</button>
+
+    <aside id="pinPanel" class="control-panel pinned" aria-label="標籤清單">
+      <section class="card pin-panel-card">
+        <header class="pin-panel-header">
+          <div>
+            <p class="eyebrow">Markers</p>
+            <h2>標籤清單</h2>
+          </div>
+          <div class="pin-panel-actions">
+            <button id="pinPanelPin" class="icon-button active" type="button" title="釘住標籤清單" aria-pressed="true">📌</button>
+            <button id="hidePinPanel" class="icon-button" type="button" title="隱藏標籤清單">‹</button>
+          </div>
+        </header>
+        <p class="muted">點擊清單可開啟右側標籤頁。解除釘住後可隱藏到左側，需要時再展開。</p>
         <div id="emptyPins" class="empty-state">尚未建立標籤。切換到「新增標籤」後點擊主視窗。</div>
         <ol id="pinList" class="pin-list"></ol>
       </section>
@@ -74,14 +91,14 @@
     </section>
   </main>
 
-  <dialog id="pinDialog" class="pin-dialog">
-    <form method="dialog" id="pinForm">
-      <header>
+  <aside id="pinEditor" class="pin-editor hidden" aria-label="標籤內容編輯">
+    <form id="pinForm">
+      <header id="pinEditorHeader" class="pin-editor-header">
         <div>
           <p class="eyebrow">Inspection Marker</p>
           <h2 id="dialogTitle">標籤內容</h2>
         </div>
-        <button id="closeDialog" class="icon-button" value="cancel" aria-label="關閉">×</button>
+        <button id="closeDialog" class="icon-button" type="button" aria-label="關閉">×</button>
       </header>
 
       <label>
@@ -108,11 +125,11 @@
       <menu>
         <button id="deletePin" class="danger" type="button">刪除標籤</button>
         <span class="spacer"></span>
-        <button value="cancel" type="button" id="cancelDialog" class="secondary">取消</button>
+        <button type="button" id="cancelDialog" class="secondary">關閉</button>
         <button id="savePin" class="primary" type="submit">儲存</button>
       </menu>
     </form>
-  </dialog>
+  </aside>
 
   <script src="app.js"></script>
 </body>
