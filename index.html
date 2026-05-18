@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>現場勘查照片整理工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Field Survey Photo Mapper</p>
+      <h1>現場勘查照片整理工具</h1>
+    </div>
+    <div class="header-actions">
+      <button id="exportProject" class="secondary">匯出 JSON</button>
+      <label class="secondary file-button">
+        匯入 JSON
+        <input id="importProject" type="file" accept="application/json">
+      </label>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="control-panel" aria-label="控制面板">
+      <section class="card">
+        <h2>1. 放入底圖</h2>
+        <p>支援 PDF、JPG、PNG、WebP。上傳後可縮放、拖曳平移，像地圖一樣檢視。</p>
+        <label class="primary file-button wide">
+          選擇 PDF 或照片
+          <input id="baseFileInput" type="file" accept="application/pdf,image/*">
+        </label>
+        <p id="fileName" class="muted">尚未選擇檔案</p>
+      </section>
+
+      <section class="card">
+        <h2>2. 操作</h2>
+        <div class="mode-grid" role="group" aria-label="操作模式">
+          <button id="panMode" class="mode active" type="button">拖曳瀏覽</button>
+          <button id="pinMode" class="mode" type="button">新增標籤</button>
+        </div>
+        <div class="zoom-controls">
+          <button id="zoomOut" type="button">－</button>
+          <input id="zoomSlider" type="range" min="25" max="400" value="100" step="5" aria-label="縮放比例">
+          <button id="zoomIn" type="button">＋</button>
+        </div>
+        <p class="muted"><span id="zoomLabel">100%</span>｜滑鼠滾輪可縮放，按住畫面可拖曳。</p>
+      </section>
+
+      <section class="card">
+        <h2>3. 標籤清單</h2>
+        <div id="emptyPins" class="empty-state">尚未建立標籤。切換到「新增標籤」後點擊主視窗。</div>
+        <ol id="pinList" class="pin-list"></ol>
+      </section>
+    </aside>
+
+    <section class="viewer-card" aria-label="主視窗">
+      <div class="viewer-toolbar">
+        <strong>主視窗</strong>
+        <span id="modeHint">目前模式：拖曳瀏覽</span>
+      </div>
+      <div id="viewer" class="viewer" tabindex="0">
+        <div id="stage" class="stage">
+          <div id="placeholder" class="placeholder">
+            <div class="placeholder-icon">⌖</div>
+            <h2>請先上傳現場平面圖、PDF 或照片</h2>
+            <p>上傳後切換到「新增標籤」，點擊影像位置即可建立勘查紀錄。</p>
+          </div>
+          <img id="baseImage" class="base-media hidden" alt="現場勘查底圖">
+          <object id="basePdf" class="base-media hidden" type="application/pdf" aria-label="PDF 底圖"></object>
+          <div id="pinLayer" class="pin-layer" aria-label="標籤圖層"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="pinDialog" class="pin-dialog">
+    <form method="dialog" id="pinForm">
+      <header>
+        <div>
+          <p class="eyebrow">Inspection Marker</p>
+          <h2 id="dialogTitle">標籤內容</h2>
+        </div>
+        <button id="closeDialog" class="icon-button" value="cancel" aria-label="關閉">×</button>
+      </header>
+
+      <label>
+        標題
+        <input id="pinTitle" type="text" placeholder="例：裂縫、滲水、設備位置" required>
+      </label>
+
+      <label>
+        勘查時間
+        <input id="pinTime" type="datetime-local">
+      </label>
+
+      <label>
+        說明／註解
+        <textarea id="pinNote" rows="5" placeholder="記錄現場狀況、尺寸、處理建議或人員說明"></textarea>
+      </label>
+
+      <label>
+        補充照片
+        <input id="pinPhotos" type="file" accept="image/*" multiple>
+      </label>
+      <div id="photoPreview" class="photo-preview" aria-live="polite"></div>
+
+      <menu>
+        <button id="deletePin" class="danger" type="button">刪除標籤</button>
+        <span class="spacer"></span>
+        <button value="cancel" type="button" id="cancelDialog" class="secondary">取消</button>
+        <button id="savePin" class="primary" type="submit">儲存</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
