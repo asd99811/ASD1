@@ -8,6 +8,9 @@ const state = {
   baseFile: null,
   baseType: null,
   isDragging: false,
+  draggingPinId: null,
+  didMovePin: false,
+  suppressPinClick: false,
   dragStart: { x: 0, y: 0 },
   startTranslate: { x: 0, y: 0 }
 };
@@ -44,7 +47,39 @@ const elements = {
   cancelDialog: document.querySelector('#cancelDialog')
 };
 
+function getStageBaseOffset() {
+  return {
+    x: elements.viewer.clientWidth / 2,
+    y: elements.viewer.clientHeight / 2
+  };
+}
+
+function clampValue(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampViewport() {
+  const base = getStageBaseOffset();
+  const scaledWidth = elements.stage.offsetWidth * state.scale;
+  const scaledHeight = elements.stage.offsetHeight * state.scale;
+  const viewerWidth = elements.viewer.clientWidth;
+  const viewerHeight = elements.viewer.clientHeight;
+
+  if (scaledWidth <= viewerWidth) {
+    state.translateX = (viewerWidth - scaledWidth) / 2 - base.x;
+  } else {
+    state.translateX = clampValue(state.translateX, viewerWidth - scaledWidth - base.x, -base.x);
+  }
+
+  if (scaledHeight <= viewerHeight) {
+    state.translateY = (viewerHeight - scaledHeight) / 2 - base.y;
+  } else {
+    state.translateY = clampValue(state.translateY, viewerHeight - scaledHeight - base.y, -base.y);
+  }
+}
+
 function applyTransform() {
+  clampViewport();
   elements.stage.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
   elements.zoomSlider.value = Math.round(state.scale * 100);
   elements.zoomLabel.textContent = `${Math.round(state.scale * 100)}%`;
@@ -95,9 +130,17 @@ function showBaseMedia() {
 
 function viewerPointToStagePoint(clientX, clientY) {
   const viewerRect = elements.viewer.getBoundingClientRect();
+  const base = getStageBaseOffset();
   return {
-    x: (clientX - viewerRect.left - state.translateX) / state.scale,
-    y: (clientY - viewerRect.top - state.translateY) / state.scale
+    x: (clientX - viewerRect.left - base.x - state.translateX) / state.scale,
+    y: (clientY - viewerRect.top - base.y - state.translateY) / state.scale
+  };
+}
+
+function clampPinToStage(point) {
+  return {
+    x: clampValue(point.x, 0, elements.stage.offsetWidth),
+    y: clampValue(point.y, 0, elements.stage.offsetHeight)
   };
 }
 
@@ -106,26 +149,29 @@ function zoomAt(nextScale, clientX, clientY) {
   const viewerRect = elements.viewer.getBoundingClientRect();
   const originX = clientX ?? viewerRect.left + viewerRect.width / 2;
   const originY = clientY ?? viewerRect.top + viewerRect.height / 2;
+  const base = getStageBaseOffset();
   const point = viewerPointToStagePoint(originX, originY);
 
   state.scale = boundedScale;
-  state.translateX = originX - viewerRect.left - point.x * state.scale;
-  state.translateY = originY - viewerRect.top - point.y * state.scale;
+  state.translateX = originX - viewerRect.left - base.x - point.x * state.scale;
+  state.translateY = originY - viewerRect.top - base.y - point.y * state.scale;
   applyTransform();
   saveProject();
 }
 
 function createPin(x, y) {
+  const point = clampPinToStage({ x, y });
   const pin = {
     id: crypto.randomUUID(),
-    x,
-    y,
+    x: point.x,
+    y: point.y,
     title: `標籤 ${state.pins.length + 1}`,
     time: new Date().toISOString().slice(0, 16),
     note: '',
     photos: []
   };
   state.pins.push(pin);
+  state.activePinId = pin.id;
   renderPins();
   openPinDialog(pin.id);
   saveProject();
@@ -139,20 +185,29 @@ function renderPins() {
   state.pins.forEach((pin, index) => {
     const marker = document.createElement('button');
     marker.className = 'pin-marker';
+    marker.classList.toggle('active', pin.id === state.activePinId);
     marker.type = 'button';
+    marker.dataset.pinId = pin.id;
     marker.style.left = `${pin.x}px`;
     marker.style.top = `${pin.y}px`;
     marker.title = pin.title;
     marker.innerHTML = `<span>${index + 1}</span>`;
+    marker.addEventListener('pointerdown', (event) => startPinDrag(event, pin.id));
     marker.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (state.suppressPinClick) {
+        event.preventDefault();
+        return;
+      }
       openPinDialog(pin.id);
     });
     elements.pinLayer.append(marker);
 
     const item = document.createElement('li');
     const itemButton = document.createElement('button');
+    item.classList.toggle('active', pin.id === state.activePinId);
     itemButton.type = 'button';
+    itemButton.dataset.pinId = pin.id;
     itemButton.innerHTML = `<strong>${index + 1}. ${escapeHtml(pin.title)}</strong><br><small>${pin.time || '未填時間'}</small>`;
     itemButton.addEventListener('click', () => openPinDialog(pin.id));
     item.append(itemButton);
@@ -170,11 +225,22 @@ function escapeHtml(value) {
   }[character]));
 }
 
+function updateActivePinStyles() {
+  document.querySelectorAll('[data-pin-id]').forEach((element) => {
+    element.classList.toggle('active', element.dataset.pinId === state.activePinId);
+  });
+  elements.pinList.querySelectorAll('li').forEach((item) => {
+    const button = item.querySelector('[data-pin-id]');
+    item.classList.toggle('active', button?.dataset.pinId === state.activePinId);
+  });
+}
+
 function openPinDialog(pinId) {
   const pin = state.pins.find((item) => item.id === pinId);
   if (!pin) return;
 
   state.activePinId = pinId;
+  updateActivePinStyles();
   elements.dialogTitle.textContent = pin.title;
   elements.pinTitle.value = pin.title;
   elements.pinTime.value = pin.time || '';
@@ -221,6 +287,55 @@ function saveActivePin() {
   pin.note = elements.pinNote.value.trim();
   renderPins();
   saveProject();
+}
+
+function startPinDrag(event, pinId) {
+  event.stopPropagation();
+  state.draggingPinId = pinId;
+  state.didMovePin = false;
+  state.activePinId = pinId;
+  state.dragStart = { x: event.clientX, y: event.clientY };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  updateActivePinStyles();
+}
+
+function moveActivePin(event) {
+  const pin = state.pins.find((item) => item.id === state.draggingPinId);
+  if (!pin) return;
+
+  const distance = Math.hypot(event.clientX - state.dragStart.x, event.clientY - state.dragStart.y);
+  if (distance > 3) {
+    state.didMovePin = true;
+  }
+
+  const point = clampPinToStage(viewerPointToStagePoint(event.clientX, event.clientY));
+  pin.x = point.x;
+  pin.y = point.y;
+
+  const marker = elements.pinLayer.querySelector(`[data-pin-id="${pin.id}"]`);
+  if (marker) {
+    marker.style.left = `${pin.x}px`;
+    marker.style.top = `${pin.y}px`;
+  }
+}
+
+function finishPinDrag(event) {
+  if (!state.draggingPinId) return;
+
+  if (event.target.hasPointerCapture?.(event.pointerId)) {
+    event.target.releasePointerCapture(event.pointerId);
+  }
+
+  state.suppressPinClick = state.didMovePin;
+  state.draggingPinId = null;
+  state.didMovePin = false;
+  saveProject();
+
+  if (state.suppressPinClick) {
+    window.setTimeout(() => {
+      state.suppressPinClick = false;
+    }, 150);
+  }
 }
 
 function deleteActivePin() {
@@ -321,6 +436,11 @@ elements.viewer.addEventListener('pointerdown', (event) => {
 });
 
 elements.viewer.addEventListener('pointermove', (event) => {
+  if (state.draggingPinId) {
+    moveActivePin(event);
+    return;
+  }
+
   if (!state.isDragging) return;
   state.translateX = state.startTranslate.x + event.clientX - state.dragStart.x;
   state.translateY = state.startTranslate.y + event.clientY - state.dragStart.y;
@@ -328,10 +448,22 @@ elements.viewer.addEventListener('pointermove', (event) => {
 });
 
 elements.viewer.addEventListener('pointerup', (event) => {
+  if (state.draggingPinId) {
+    finishPinDrag(event);
+    return;
+  }
+
   if (!state.isDragging) return;
   state.isDragging = false;
   elements.viewer.releasePointerCapture(event.pointerId);
   elements.viewer.style.cursor = state.mode === 'pin' ? 'crosshair' : 'grab';
+  saveProject();
+});
+
+elements.viewer.addEventListener('pointercancel', finishPinDrag);
+
+window.addEventListener('resize', () => {
+  applyTransform();
   saveProject();
 });
 
@@ -353,3 +485,4 @@ if (storedProject) {
 setMode('pan');
 applyTransform();
 renderPins();
+
